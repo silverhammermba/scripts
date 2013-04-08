@@ -15,15 +15,24 @@ def parse str
 end
 
 def roll sides, number = 1, modifier = 0, times = 1
-	times.times do
+	# return array of arrays of rolls
+	(1..times).map do
 		rolls = (1..number).map { 1 + rand(sides) }
-		str = rolls.join(?+)
-		str += "%+d" % modifier if modifier != 0
-		str += " = #{rolls.reduce(:+) + modifier}" % modifier if modifier != 0 or number > 1
+		rolls << modifier if modifier != 0
+		rolls
+	end
+end
+
+def display results
+	# TODO print in columns with cmds as headers?
+	results.each do |rolls|
+		str = rolls.map { |r| "%+d" % r }.join
+		str = str[1..-1] if str[0] == ?+
+		str += " = #{rolls.reduce(:+)}" if rolls.length > 1
 		puts str
 	end
 end
 
 ARGV.each do |cmd|
-	roll(*parse(cmd.strip))
+	display(roll(*parse(cmd.strip)))
 end
