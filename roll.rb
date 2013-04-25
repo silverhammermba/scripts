@@ -33,6 +33,16 @@ def display results
 	end
 end
 
+if ARGV.empty? or ARGV.include?('-h') or ARGV.include?('--help')
+	STDERR.puts "usage: #{$0} ROLL
+where ROLL is formatted as [Tx][N]dS[+-M]
+	T	number of times to repeat roll
+	N	number of dice per roll
+	S	number of sides per die
+	M	modifier to add to roll total"
+	exit 1
+end
+
 ARGV.each do |cmd|
 	display(roll(*parse(cmd.strip)))
 end
