@@ -22,7 +22,6 @@ opts = OptionParser.new do |opts|
 
 	opts.on('-i', '--interactive', 'prompt before overwriting') do
 		$interactive = true
-		$clobber = false
 	end
 
 	opts.on('-n', '--no-clobber', 'do not overwrite an existing file') do
@@ -57,10 +56,6 @@ $files = if ARGV.length > 2
 		Dir.entries('.') - ['.', '..']
 	end
 
-puts $regexp.inspect
-puts $replace.inspect
-puts $files.inspect
-
 # do the work
 
 $files.each do |file|
@@ -74,8 +69,8 @@ $files.each do |file|
 				rename = false
 
 				if $interactive
-					STDERR.print "#$0: overwrite ‘#{newfile}’? "
-					rename = true if gets.strip =~ /^y(es)?$/i
+					STDERR.print "#$0 #{file}: overwrite ‘#{newfile}’? "
+					rename = true if STDIN.gets.strip =~ /^y(es)?$/i
 				elsif $clobber
 					rename = true
 				else
@@ -88,7 +83,7 @@ $files.each do |file|
 					File.rename file, newfile
 					puts "renamed\t#{file}:\t#{newfile}" if $verbose
 				rescue SystemCallError
-					puts "ERROR: #$!"
+					STDERR.puts "ERROR: #$!"
 				end
 			end
 		elsif $verbose
