@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# check/download updates to AUR packages
 
 require 'net/https'
 require 'nokogiri'
