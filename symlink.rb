@@ -3,8 +3,10 @@
 
 if ARGV.length != 2
 	STDERR.puts "usage: #$0 TARGET LINK
+
 create absolute symlink to TARGET named LINK. If LINK is a directory, name
 symlink after TARGET, minus any file extension"
+	exit 1
 end
 
 target = File.expand_path(ARGV[0])
