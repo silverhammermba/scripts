@@ -2,6 +2,8 @@
 # dice rolling from the command line
 # e.g. 2x3d6+4, d6
 
+require 'optparse'
+
 # TODO proper arg parsing
 
 class Hash
@@ -39,6 +41,14 @@ class Roll
 
 	def to_s
 		@str
+	end
+
+	# no @times
+	def to_short_s
+		s = "d#@sides"
+		s = "#@number#{s}" if @number != 1
+		s += "%+d" % @modifier if @modifier != 0
+		s
 	end
 
 	def dist
@@ -81,47 +91,46 @@ class Roll
 	end
 end
 
-if ARGV.empty? or ARGV.include?('-h') or ARGV.include?('--help')
-	STDERR.puts <<USAGE
-USAGE: #$0 ROLL
-where ROLL is formatted as [Tx][N]dS[+-M]
+OptionParser.new do |opts|
+	opts.banner = "USAGE: #$0 ROLL [OPTIONS]"
+	opts.separator <<ROLL
+where ROLL is formatted as [Tx][N]dS[+-M]"
 	T	number of times to repeat roll
 	N	number of dice per roll
 	S	number of sides per die
 	M	modifier to add to roll total
 
 OPTIONS
-	--pdf -p  print probabilities of roll outcomes
-	--gt  -g  print probabilities of rolling >= each outcome
-	--lt  -l  print probabilities of rolling <= each outcome
+ROLL
 
-EXAMPLES
-	#$0 d20+2  roll one 20-sided die and add two to the result
-	#$0 4x3d6  roll three 6-sided dice four times
-USAGE
+	opts.on('-p', '--pdf', "print probabilities of roll outcomes") do |p|
+		$pdf = true
+	end
 
-	exit 1
-end
+	opts.on('-g', '--greater', "print probabilities of rolling >= each value") do |g|
+		$gt = true
+	end
 
-$pdf = ARGV.delete('-p') || ARGV.delete('--pdf')
-$gt = ARGV.delete('-g') || ARGV.delete('--gt')
-$lt = ARGV.delete('-l') || ARGV.delete('--lt')
+	opts.on('-l', '--less', "print probabilities of rolling <= each value") do |g|
+		$lt = true
+	end
+end.parse!
 
 ARGV.each do |cmd|
 	roll = Roll.new(cmd)
 
 	if $pdf
-		puts "Roll"
+		puts "Roll #{roll.to_short_s}"
 		roll.pdf
 	end
 
 	if $gt
-		puts ">= Roll"
+		puts ">= Roll #{roll.to_short_s}"
 		roll.cdf(:>=)
 	end
 
 	if $lt
-		puts "<= Roll"
+		puts "<= Roll #{roll.to_short_s}"
 		roll.cdf(:<=)
 	end
 
