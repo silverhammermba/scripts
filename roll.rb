@@ -29,34 +29,73 @@ class Dice
 		@sides = sides
 	end
 
+	def min
+		@number
+	end
+
+	def max
+		@number * @sides
+	end
+
 	def ways total
 		self.class.ways @number, @sides, total
 	end
-end
 
-# TODO use new Dice class
-puts Dice.ways(6, 20, 10)
-puts Dice.ways(20, 20, 10)
-exit
+	def roll
+		(1..@number).map { 1 + rand(@sides) }
+	end
+end
 
 class Roll
 	def initialize str
-		@str = str.strip
-		raise ArgumentError.new("Bad roll string: #@str") unless @str =~ /^((\d+)x)?(\d+)?d(\d+)([+-]\d+)?$/
+		@str = str
+
 		@times = 1
-		@times = $2.to_i if $2
-		@number = 1
-		@number = $3.to_i if $3
-		@sides = $4.to_i
+		if str =~ /^(\d+)x(.*)/
+			@times = $1.to_i
+			str = $2
+		end
+
 		@modifier = 0
-		@modifier = $5.to_i if $5
+		if str =~ /(.*)([+-]\d+)$/
+			@modifier = $2.to_i
+			str = $1
+		end
+
+		@dice = []
+		@signs = []
+		first = true
+
+		while str =~ /^([+-])?(\d+)?d(\d+)(.*)$/
+			if $1
+				@signs << ($1 + ?1).to_i
+			elsif first # assume positive if no sign before first dice
+				@signs << 1
+			else
+				raise ArgumentError.new("missing sign before `#{str}'")
+			end
+			first = false
+
+			number = 1
+			if $2
+				number = $2.to_i
+			end
+
+			@dice << Dice.new(number, $3.to_i)
+
+			str = $4
+		end
+
+		unless str.empty?
+			raise ArgumentError.new("couldn't parse `#{str}'")
+		end
 	end
 
 	attr_reader :times, :number, :sides, :modifier
 
 	def result
 		(1..@times).each do
-			rolls = (1..@number).map { 1 + rand(@sides) }
+			rolls = @dice.zip(@signs).map { |d, s| d.roll.map { |r| r * s } }.flatten
 			rolls << @modifier if @modifier != 0
 			str = rolls.map { |r| "%+d" % r }.join
 			str = str[1..-1] if str[0] == ?+
@@ -93,6 +132,7 @@ class Roll
 		@dist
 	end
 
+	# TODO use new Dice class
 	def pdf
 		max = dist.values.max
 		total = dist.values.reduce(:+)
