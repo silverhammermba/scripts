@@ -13,6 +13,32 @@ class Hash
 	end
 end
 
+# class for rolling a number of same-sided dice
+class Dice
+	@@counts = {}
+
+	# number of ways to roll total with number side-sided dice
+	def self.ways number, sides, total
+		return 0 if total < number or total > number * sides
+		return 1 if number == 1
+		return @@counts[[number, sides, total]] ||= (1..(total - number + 1)).map { |r| ways(number - 1, sides, total - r) }.reduce(:+)
+	end
+
+	def initialize number, sides
+		@number = number
+		@sides = sides
+	end
+
+	def ways total
+		self.class.ways @number, @sides, total
+	end
+end
+
+# TODO use new Dice class
+puts Dice.ways(6, 20, 10)
+puts Dice.ways(20, 20, 10)
+exit
+
 class Roll
 	def initialize str
 		@str = str.strip
