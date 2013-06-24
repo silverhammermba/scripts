@@ -139,7 +139,7 @@ class Roll
 		@dist
 	end
 
-	# TODO use new Dice class
+	# TODO align columns properly
 	def pdf
 		max = dist.values.max
 		total = dist.values.reduce(:+)
@@ -193,17 +193,17 @@ ARGV.each do |cmd|
 	roll = Roll.new(cmd)
 
 	if $pdf
-		puts "Roll #{roll.to_short_s}"
+		puts "== Roll"
 		roll.pdf
 	end
 
 	if $gt
-		puts ">= Roll #{roll.to_short_s}"
+		puts ">= Roll"
 		roll.cdf(:>=)
 	end
 
 	if $lt
-		puts "<= Roll #{roll.to_short_s}"
+		puts "<= Roll"
 		roll.cdf(:<=)
 	end
 
