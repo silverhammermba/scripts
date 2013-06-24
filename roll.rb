@@ -4,8 +4,6 @@
 
 require 'optparse'
 
-# TODO proper arg parsing
-
 class Hash
 	def histogram
 		min = keys.min
@@ -139,13 +137,17 @@ class Roll
 		@dist
 	end
 
-	# TODO align columns properly
 	def pdf
+		kmin = dist.keys.min
+		kmax = dist.keys.max
+
 		max = dist.values.max
 		total = dist.values.reduce(:+)
 
-		dist.keys.sort.each do |i|
-			puts "%2d: #{?# * ((dist[i] * 80) / max)} %.2f%%" % [i, dist[i] * 100.0 / total]
+		col = [kmin, kmax].map { |k| k.to_s.size }.max
+
+		(kmin..kmax).each do |i|
+			puts "%#{col}d: #{?# * ((dist[i] * 80) / max)} %.2f%%" % [i, dist[i] * 100.0 / total]
 		end
 	end
 
@@ -154,12 +156,14 @@ class Roll
 		max = dist.keys.max
 		total = dist.values.reduce(:+)
 
+		col = [min, max].map { |k| k.to_s.size }.max
+
 		(min..max).each do |i|
 			t = 0
 			(min..max).each do |j|
 				t += dist[j] if j.send(meth, i)
 			end
-			puts "%2d: #{?# * ((t * 80) / total)} %.2f%%" % [i, t * 100.0 / total]
+			puts "%#{col}d: #{?# * ((t * 80) / total)} %.2f%%" % [i, t * 100.0 / total]
 		end
 	end
 end
