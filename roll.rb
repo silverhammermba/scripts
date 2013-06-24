@@ -21,7 +21,7 @@ class Dice
 	def self.ways number, sides, total
 		return 0 if total < number or total > number * sides
 		return 1 if number == 1
-		return @@counts[[number, sides, total]] ||= (1..(total - number + 1)).map { |r| ways(number - 1, sides, total - r) }.reduce(:+)
+		@@counts[[number, sides, total]] ||= (1..total).map { |r| ways(1, sides, r) * ways(number - 1, sides, total - r) }.reduce(:+)
 	end
 
 	def initialize number, sides
@@ -108,25 +108,32 @@ class Roll
 		@str
 	end
 
-	# no @times
-	def to_short_s
-		s = "d#@sides"
-		s = "#@number#{s}" if @number != 1
-		s += "%+d" % @modifier if @modifier != 0
-		s
+	def self.ways dice, signs, total
+		if dice.length == 1
+			return dice[0].ways(total * signs[0])
+		end
+
+		if signs[0] > 0
+			range = (dice[0].min..dice[0].max)
+		else
+			range = (-(dice[0].max)..-(dice[0].min))
+		end
+
+		w = range.map { |t| ways(dice[1..-1], signs[1..-1], total - t) }.reduce(:+)
+
+		return w
 	end
 
 	def dist
 		return @dist if @dist
 
-		die = (1..@sides).to_a
+		min = @dice.zip(@signs).map { |d, s| s > 0 ? d.min : -(d.max) }.reduce(:+)
+		max = @dice.zip(@signs).map { |d, s| s > 0 ? d.max : -(d.min) }.reduce(:+)
+
 		@dist = Hash.new(0)
-		if @number == 1
-			die.each { |s| @dist[s + @modifier] += 1 }
-		else
-			die.product(*Array.new(@number - 1, die)).each do |s|
-				@dist[s.reduce(:+) + @modifier] += 1
-			end
+
+		(min..max).each do |t|
+			@dist[t] = self.class.ways(@dice, @signs, t)
 		end
 
 		@dist
