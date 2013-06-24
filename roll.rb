@@ -4,13 +4,6 @@
 
 require 'optparse'
 
-class Hash
-	def histogram
-		min = keys.min
-		max = keys.max
-	end
-end
-
 # class for rolling a number of same-sided dice
 class Dice
 	@@counts = {}
