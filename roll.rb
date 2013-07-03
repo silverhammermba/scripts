@@ -179,16 +179,20 @@ where ROLL is formatted as [Tx][N]dS[+-M]"
 OPTIONS
 ROLL
 
-	opts.on('-p', '--pdf', "print probabilities of roll outcomes") do |p|
+	opts.on('-p', '--pdf', "print probabilities of roll outcomes") do
 		$pdf = true
 	end
 
-	opts.on('-g', '--greater', "print probabilities of rolling >= each value") do |g|
+	opts.on('-g', '--greater', "print probabilities of rolling >= each value") do
 		$gt = true
 	end
 
-	opts.on('-l', '--less', "print probabilities of rolling <= each value") do |g|
+	opts.on('-l', '--less', "print probabilities of rolling <= each value") do
 		$lt = true
+	end
+
+	opts.on('-w', '--width WIDTH', Integer, "maximum width of bar graph is WIDTH") do |w|
+		$width = w.to_i
 	end
 end.parse!
 
