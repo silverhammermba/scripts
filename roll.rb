@@ -4,6 +4,10 @@
 
 require 'optparse'
 
+def bar num, val, den, total, col_width, width
+	puts "%#{col_width}d: #{?□ * ((val * width) / den)} %.2f%%" % [num, val * 100.0 / total]
+end
+
 # class for rolling a number of same-sided dice
 class Dice
 	@@counts = {}
@@ -140,7 +144,7 @@ class Roll
 		col = [kmin, kmax].map { |k| k.to_s.size }.max
 
 		(kmin..kmax).each do |i|
-			puts "%#{col}d: #{?# * ((dist[i] * 80) / max)} %.2f%%" % [i, dist[i] * 100.0 / total]
+			bar(i, dist[i], max, total, col, $width)
 		end
 	end
 
@@ -156,10 +160,12 @@ class Roll
 			(min..max).each do |j|
 				t += dist[j] if j.send(meth, i)
 			end
-			puts "%#{col}d: #{?# * ((t * 80) / total)} %.2f%%" % [i, t * 100.0 / total]
+			bar(i, t, total, total, col, $width)
 		end
 	end
 end
+
+$width = 80
 
 OptionParser.new do |opts|
 	opts.banner = "USAGE: #$0 ROLL [OPTIONS]"
