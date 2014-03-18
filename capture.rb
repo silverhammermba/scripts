@@ -3,13 +3,13 @@
 
 require 'optparse'
 
-$audio = ''
+$audio = '-an'
 $capture = ''
 
 OptionParser.new do |opts|
   opts.banner = "Usage #$0 [OPTIONS]"
   opts.on('-m', '--mic', 'Record mic input') do |v|
-    $audio = '-f alsa -i default'
+    $audio = '-f alsa -i default -c:a flac'
   end
   opts.on('-r', '--root', 'Capture root window') do |v|
     $capture = '-root'
@@ -27,4 +27,4 @@ $res = "#{w}x#{h}"
 
 $filename = Time.new.strftime("%F-%H%M%S") + "_#{$res}_ffmpeg.mkv"
 
-exec "ffmpeg -video_size #$res -f x11grab -i :0.0+#{x},#{y} #$audio -c:v ffvhuff -c:a flac #$filename"
+exec "ffmpeg -video_size #$res -f x11grab -i :0.0+#{x},#{y} -c:v ffvhuff #$audio #$filename"
