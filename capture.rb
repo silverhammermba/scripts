@@ -1,16 +1,20 @@
 #!/usr/bin/env ruby
-# record video of screen
+# screen capture
+
+require 'optparse'
 
 $audio = ''
 $capture = ''
 
-if ARGV.delete('-a') or ARGV.delete('--alsa')
-  $audio = '-f alsa -i default'
-end
-
-if ARGV.delete('-r') or ARGV.delete('--root')
-  $capture = '-root'
-end
+OptionParser.new do |opts|
+  opts.banner = "Usage #$0 [OPTIONS]"
+  opts.on('-m', '--mic', 'Record mic input') do |v|
+    $audio = '-f alsa -i default'
+  end
+  opts.on('-r', '--root', 'Capture root window') do |v|
+    $capture = '-root'
+  end
+end.parse!
 
 # get window dimensions
 win_info = `xwininfo #$capture`
