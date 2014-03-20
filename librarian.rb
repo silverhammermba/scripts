@@ -11,6 +11,9 @@ extensions = {}
 Find.find(library) do |path|
   unless FileTest.directory? path
     ext = File.extname(path).downcase[1..-1]
+    if ext.nil?
+      ext = '"nil"'
+    end
     extensions[ext] ||= []
     extensions[ext] << path
   end
