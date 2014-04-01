@@ -6,6 +6,7 @@ require 'taglib'
 require 'set'
 require 'fileutils'
 
+# for suggesting existing artist/album names
 def edit_distance(s, t)
   m = s.length
   n = t.length
@@ -28,6 +29,11 @@ def edit_distance(s, t)
     end
   end
   d[m][n]
+end
+
+# how library files are organized
+def dest artist, album
+  File.join($heaven, artist, album)
 end
 
 if ARGV.length != 2
@@ -142,7 +148,7 @@ def check_album artist, album, paths
   if $library[artist].include? album
     STDOUT.puts "ERROR: CONFLICT: Duplicate album: #{album}"
     paths.each { |path| STDOUT.puts "ERROR: SRC: #{path}" }
-    Find.find(File.join($heaven, artist, album)) { |path| STDOUT.puts "ERROR: DST: #{path}" unless File.directory? path }
+    Find.find(dest(artist, album)) { |path| STDOUT.puts "ERROR: DST: #{path}" unless File.directory? path }
     return nil
   end
 
@@ -171,10 +177,10 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
       next unless album
 
       # good to go now
-      dest = File.join($heaven, artist, album)
-      STDOUT.puts "ACTION: Moving #{path} to #{dest}"
-      FileUtils.mkdir_p(dest)
-      FileUtils.mv(path, dest)
+      dst = dest(artist, album)
+      STDOUT.puts "ACTION: Moving #{path} to #{dst}"
+      FileUtils.mkdir_p(dst)
+      FileUtils.mv(path, dst)
     end
   else
     # only import if we get one artist, one album
@@ -205,10 +211,10 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
     next unless album
 
     # go, go, go!
-    dest = File.join($heaven, artist, album)
-    STDOUT.puts "ACTION: Moving #{dir} tracks to #{dest}"
-    FileUtils.mkdir_p(dest)
-    paths.each { |path| FileUtils.mv(path, dest) }
+    dst = dest(artist, album)
+    STDOUT.puts "ACTION: Moving #{dir} tracks to #{dst}"
+    FileUtils.mkdir_p(dst)
+    paths.each { |path| FileUtils.mv(path, dst) }
 
     # look for leftover crap
     if Dir.entries(dir).size > 2
