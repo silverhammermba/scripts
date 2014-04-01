@@ -220,7 +220,8 @@ empty = 1
 while empty > 0
   empty = 0
   Find.find(earth) do |path|
-    FileUtils.rmdir(path)
+    next unless File.directory? path
+    FileUtils.rmdir path
     unless File.exists? path
       STDOUT.puts "ACTION: Removing empty dir #{path}"
       empty += 1
