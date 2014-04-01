@@ -88,13 +88,13 @@ def check_artist artist, paths
     # if new name set
     if not new.empty? and new != artist
       artist = new
-      STDOUT.puts "Updating artist to: #{artist}"
+      STDOUT.puts "ACTION: Updating artist to: #{artist}"
 
       # update songs
       paths.each do |path|
         TagLib::FileRef.open(path) do |f|
           f.tag.artist = artist
-          #f.save
+          f.save
         end
       end
     end
@@ -127,20 +127,20 @@ def check_album artist, album, paths
     # if new name set
     if not new.empty? and new != album
       album = new
-      STDOUT.puts "Updating album to: #{album}"
+      STDOUT.puts "ACTION: Updating album to: #{album}"
 
       # update songs
       paths.each do |path|
         TagLib::FileRef.open(path) do |f|
           f.tag.album = album
-          #f.save
+          f.save
         end
       end
     end
   end
 
   if $library[artist].include? album
-    STDOUT.puts "ERROR: Duplicate album"
+    STDOUT.puts "ERROR: Duplicate album: #{album}"
     return nil
   end
 
@@ -152,6 +152,7 @@ end
 sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
   # handle stray songs individually
   if dir == earth
+    STDOUT.puts "LOG: Processing #{dir}"
     paths.each do |path|
       artist, album = TagLib::FileRef.open(path) { |f| f.null? ? nil : [f.tag.artist, f.tag.album] }
       unless artist
@@ -168,6 +169,10 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
       next unless album
 
       # good to go now
+      dest = File.join(heaven, artist, album)
+      STDOUT.puts "ACTION: Moving #{path} to #{dest}"
+      FileUtils.mkdir_p(dest)
+      FileUtils.mv(path, dest)
     end
   else
     # only import if we get one artist, one album
@@ -191,7 +196,7 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
     end
     album = albums.first
 
-    STDOUT.puts "Processing #{dir}"
+    STDOUT.puts "LOG: Processing #{dir}"
 
     artist = check_artist(artist, paths)
     album = check_album(artist, album, paths)
@@ -199,13 +204,26 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
 
     # go, go, go!
     dest = File.join(heaven, artist, album)
-    STDOUT.puts "Moving tracks to #{dest}"
-    #FileUtils.mkdir_p(dest)
-    #paths.each { |path| FileUtils.mv(path, dest) }
+    STDOUT.puts "ACTION: Moving #{dir} tracks to #{dest}"
+    FileUtils.mkdir_p(dest)
+    paths.each { |path| FileUtils.mv(path, dest) }
 
     # look for leftover crap
     if Dir.entries(dir).size > 2
-      STDOUT.puts "Leftover files in #{dir}"
+      STDOUT.puts "WARNING: Leftover files in #{dir}"
+    end
+  end
+end
+
+empty = 1
+
+while empty > 0
+  empty = 0
+  Find.find(earth) do |path|
+    FileUtils.rmdir(path)
+    unless File.exists? path
+      STDOUT.puts "ACTION: Removing empty dir #{path}"
+      empty += 1
     end
   end
 end
