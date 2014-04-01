@@ -35,8 +35,8 @@ if ARGV.length != 2
   exit 1
 end
 
-earth = File.expand_path(ARGV[0])
-heaven = File.expand_path(ARGV[1])
+$earth = File.expand_path(ARGV[0])
+$heaven = File.expand_path(ARGV[1])
 
 known_exts = Set.new [
   '.mp3',
@@ -48,7 +48,7 @@ known_exts = Set.new [
 sinners = []
 
 # collect files with known extensions
-Find.find(earth) do |path|
+Find.find($earth) do |path|
   next if File.directory? path
   sinners << path if known_exts.include? File.extname(path).downcase
 end
@@ -58,7 +58,7 @@ exit if sinners.empty?
 # get existing library info
 $library = {}
 
-Find.find(heaven) do |path|
+Find.find($heaven) do |path|
   next if File.directory? path
   TagLib::FileRef.open(path) do |f|
     $library[f.tag.artist] ||= Set.new
@@ -140,7 +140,9 @@ def check_album artist, album, paths
   end
 
   if $library[artist].include? album
-    STDOUT.puts "ERROR: Duplicate album: #{album}"
+    STDOUT.puts "ERROR: CONFLICT: Duplicate album: #{album}"
+    paths.each { |path| STDOUT.puts "ERROR: SRC: #{path}" }
+    Find.find(File.join($heaven, artist, album)) { |path| STDOUT.puts "ERROR: DST: #{path}" unless File.directory? path }
     return nil
   end
 
@@ -151,7 +153,7 @@ end
 # handle songs by directory
 sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
   # handle stray songs individually
-  if dir == earth
+  if dir == $earth
     STDOUT.puts "LOG: Processing #{dir}"
     paths.each do |path|
       artist, album = TagLib::FileRef.open(path) { |f| f.null? ? nil : [f.tag.artist, f.tag.album] }
@@ -169,7 +171,7 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
       next unless album
 
       # good to go now
-      dest = File.join(heaven, artist, album)
+      dest = File.join($heaven, artist, album)
       STDOUT.puts "ACTION: Moving #{path} to #{dest}"
       FileUtils.mkdir_p(dest)
       FileUtils.mv(path, dest)
@@ -203,7 +205,7 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
     next unless album
 
     # go, go, go!
-    dest = File.join(heaven, artist, album)
+    dest = File.join($heaven, artist, album)
     STDOUT.puts "ACTION: Moving #{dir} tracks to #{dest}"
     FileUtils.mkdir_p(dest)
     paths.each { |path| FileUtils.mv(path, dest) }
@@ -219,7 +221,7 @@ empty = 1
 
 while empty > 0
   empty = 0
-  Find.find(earth) do |path|
+  Find.find($earth) do |path|
     next unless File.directory? path
     FileUtils.rmdir path
     unless File.exists? path
