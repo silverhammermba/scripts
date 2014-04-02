@@ -101,10 +101,11 @@ def check_artists artists
       # if new name set
       if not new.empty? and new != artist
         changes[artist] = new
+        artist = new
       end
 
       # add library record
-      $library[new] ||= Set.new
+      $library[artist] ||= Set.new
     end
   end
 
