@@ -68,7 +68,7 @@ Find.find($heaven) do |path|
   next if File.directory? path
   TagLib::FileRef.open(path) do |f|
     artists = f.tag.artist.split(' / ')
-    artists.each { |artist| $library[f.tag.artist] ||= Set.new }
+    artists.each { |artist| $library[artist] ||= Set.new }
     $library[artists.first] << f.tag.album
   end
 end
