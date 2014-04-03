@@ -180,17 +180,18 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
         STDOUT.puts "ERROR: No artist information for #{path}"
         next
       end
-      unless album
-        STDOUT.puts "ERROR: No album information for #{path}"
-        next
-      end
 
       artist = check_artist([[path, artists]])
-      album = check_album(artist, album, [path])
-      next unless album
+
+      if album
+        album = check_album(artist, album, [path])
+        dst = dest(artist, album)
+      else
+        STDOUT.puts "LOG: No album information for #{path}"
+        dst = File.join($heaven, artist)
+      end
 
       # good to go now
-      dst = dest(artist, album)
       STDOUT.puts "ACTION: Moving #{path} to #{dst}"
       FileUtils.mkdir_p(dst)
       FileUtils.mv(path, dst)
