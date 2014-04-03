@@ -181,7 +181,7 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
         next
       end
 
-      artist = check_artist([[path, artists]])
+      artist = check_artists([[path, artists]])
 
       if album
         album = check_album(artist, album, [path])
