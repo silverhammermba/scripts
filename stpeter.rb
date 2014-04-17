@@ -184,8 +184,8 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
   if dir == $earth
     STDOUT.puts "LOG: Processing #{dir}"
     paths.each do |path|
-      artists, album = TagLib::FileRef.open(path) { |f| f.null? ? nil : [f.tag.artist.split(' / '), f.tag.album] }
-      unless artists
+      artists, album = TagLib::FileRef.open(path) { |f| [(f.null? || f.tag.artist.nil?) ? [] : f.tag.artist.split(' / '), f.null? ? nil : f.tag.album] }
+      if artists.empty?
         STDOUT.puts "ERROR: No artist information for #{path}"
         next
       end
@@ -225,11 +225,11 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
     end
   else
     # only import if we get one artist, one album
-    artists = paths.map { |path| TagLib::FileRef.open(path) { |f| [path, f.null? ? nil : f.tag.artist.split(' / ')] } }
+    artists = paths.map { |path| TagLib::FileRef.open(path) { |f| [path, (f.null? || f.tag.artist.nil?) ? [] : f.tag.artist.split(' / ')] } }
     if artists.map { |path, a| a.first }.uniq.size > 1
       STDOUT.puts "ERROR: Multiple primary artists in #{dir}"
       next
-    elsif artists[0][1].nil?
+    elsif artists[0][1].empty?
       STDOUT.puts "ERROR: No artist information for #{dir}"
       next
     end
