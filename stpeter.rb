@@ -33,6 +33,13 @@ end
 
 # how library files are organized
 def dest artist, album
+  # ensure we only use primary artist, replace forward slashes with unicode equivalent
+  artist = artist.split(" / ")[0].gsub("/", "∕")
+  if album
+    album = album.gsub("/", "∕")
+  else
+    album = ''
+  end
   File.join($heaven, artist, album)
 end
 
@@ -70,6 +77,7 @@ $library = {}
 Find.find($heaven) do |path|
   next if File.directory? path
   TagLib::FileRef.open(path) do |f|
+    raise "DEMONS IN HEAVEN: #{path}" unless f.tag.artist
     artists = f.tag.artist.split(' / ')
     artists.each { |artist| $library[artist] ||= Set.new }
     $library[artists.first] << f.tag.album
@@ -134,7 +142,7 @@ def check_album artist, album, paths
   unless $library[artist].include? album
     # look for similar existing album names
     STDERR.puts "New album: #{album}"
-    distances = $library[artist].map { |a| [a, edit_distance(a, album)] }
+    distances = $library[artist].map { |a| [a, edit_distance(a || '', album)] }
     min = distances.min_by(&:last)
     matches = distances.select { |a, d| d == min[1] }.map(&:first)
 
@@ -169,10 +177,10 @@ def check_album artist, album, paths
 end
 
 def update path, artist_changes, album_changes
-  if artist_changes[path] or album_changes[path]
+  if (artist_changes and artist_changes[path]) or (album_changes and  album_changes[path])
     TagLib::FileRef.open(path) do |f|
-      f.tag.artist = artist_changes[path] if artist_changes[path]
-      f.tag.album = album_changes[path] if album_changes[path]
+      f.tag.artist = artist_changes[path] if (artist_changes and artist_changes[path])
+      f.tag.album = album_changes[path] if (album_changes and album_changes[path])
       f.save
     end
   end
@@ -200,13 +208,13 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
         dst = dest(artist, album)
       else
         STDOUT.puts "LOG: No album information for #{path}"
-        dst = File.join($heaven, artist)
+        dst = dest(artist, '')
       end
 
       # show new values
       unless new_artists.empty?
         STDOUT.puts "ACTION: Updating artists:"
-        new_artists.each { |o, n| puts "ACTION:\t#{o} -> #{a}" }
+        new_artists.each { |o, n| puts "ACTION:\t#{o} -> #{n}" }
       end
       if album_changes and not album_changes.empty?
         STDOUT.puts "ACTION: Updating album to: #{album}"
