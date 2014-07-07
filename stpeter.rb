@@ -36,6 +36,9 @@ def dest artist, album
   File.join($heaven, artist, album)
 end
 
+$copy = false
+$copy = true if ARGV.delete('--copy') or ARGV.delete('-c')
+
 if ARGV.length != 2
   STDERR.puts "usage: #$0 EARTH HEAVEN"
   exit 1
@@ -77,7 +80,7 @@ end
 def check_artists artists
   # collect all artist names
   all = artists.map(&:last).reduce(:+).uniq
-  changes = {}
+  new_name = {}
 
   # check each artist
   all.each do |artist|
@@ -88,7 +91,7 @@ def check_artists artists
       STDERR.puts "Unrecognized artist: #{artist}"
       distances = $library.keys.map { |a| [a, edit_distance(a, artist)] }
       min = distances.min_by(&:last)
-      matches = distances.select { |a, d| d == min }.map(&:first)
+      matches = distances.select { |a, d| d == min[1] }.map(&:first)
 
       unless matches.empty?
         STDERR.puts "Closest matches:"
@@ -100,7 +103,7 @@ def check_artists artists
 
       # if new name set
       if not new.empty? and new != artist
-        changes[artist] = new
+        new_name[artist] = new
         artist = new
       end
 
@@ -109,31 +112,31 @@ def check_artists artists
     end
   end
 
+  changes = {}
+
   # update songs
   artists.each do |path, a|
     # skip if we didn't change anything
-    next unless a.any? { |artist| changes[artist] }
-    TagLib::FileRef.open(path) do |f|
-      new = a.map { |artist| changes[artist] or artist }.join(' / ')
-      STDOUT.puts "ACTION: Updating artist to: #{new}"
-      f.tag.artist = new
-      f.save
-    end
+    next unless a.any? { |artist| new_name[artist] }
+    changes[path] = a.map { |artist| new_name[artist] || artist }.join(' / ')
   end
 
   primary = artists[0][1][0]
-  changes[primary] or primary
+  # return primary artist name and changes to make
+  return [new_name[primary] || primary, new_name, changes]
 end
 
 # check and correct duplicate/incorrect album names
 def check_album artist, album, paths
+  changes = {}
+
   # if this is a new album
   unless $library[artist].include? album
     # look for similar existing album names
     STDERR.puts "New album: #{album}"
     distances = $library[artist].map { |a| [a, edit_distance(a, album)] }
     min = distances.min_by(&:last)
-    matches = distances.select { |a, d| d == min }.map(&:first)
+    matches = distances.select { |a, d| d == min[1] }.map(&:first)
 
     unless matches.empty?
       STDERR.puts "Closest matches:"
@@ -146,14 +149,10 @@ def check_album artist, album, paths
     # if new name set
     if not new.empty? and new != album
       album = new
-      STDOUT.puts "ACTION: Updating album to: #{album}"
 
       # update songs
       paths.each do |path|
-        TagLib::FileRef.open(path) do |f|
-          f.tag.album = album
-          f.save
-        end
+        changes[path] = album
       end
     end
   end
@@ -162,11 +161,21 @@ def check_album artist, album, paths
     STDOUT.puts "ERROR: CONFLICT: Duplicate album: #{album}"
     paths.each { |path| STDOUT.puts "ERROR: SRC: #{path}" }
     Find.find(dest(artist, album)) { |path| STDOUT.puts "ERROR: DST: #{path}" unless File.directory? path }
-    return nil
+    return [nil, changes]
   end
 
   $library[artist] << album
-  album
+  return [album, changes]
+end
+
+def update path, artist_changes, album_changes
+  if artist_changes[path] or album_changes[path]
+    TagLib::FileRef.open(path) do |f|
+      f.tag.artist = artist_changes[path] if artist_changes[path]
+      f.tag.album = album_changes[path] if album_changes[path]
+      f.save
+    end
+  end
 end
 
 # handle songs by directory
@@ -175,34 +184,52 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
   if dir == $earth
     STDOUT.puts "LOG: Processing #{dir}"
     paths.each do |path|
-      artists, album = TagLib::FileRef.open(path) { |f| f.null? ? nil : [f.tag.artist.split(' / '), f.tag.album] }
-      unless artists
+      artists, album = TagLib::FileRef.open(path) { |f| [(f.null? || f.tag.artist.nil?) ? [] : f.tag.artist.split(' / '), f.null? ? nil : f.tag.album] }
+      if artists.empty?
         STDOUT.puts "ERROR: No artist information for #{path}"
         next
       end
 
-      artist = check_artists([[path, artists]])
+      STDOUT.puts "LOG: Processing #{path}"
 
+      # try to fix artist/album
+      artist, new_artists, artist_changes = check_artists([[path, artists]])
       if album
-        album = check_album(artist, album, [path])
+        album, album_changes = check_album(artist, album, [path])
+        next unless album
         dst = dest(artist, album)
       else
         STDOUT.puts "LOG: No album information for #{path}"
         dst = File.join($heaven, artist)
       end
 
+      # show new values
+      unless new_artists.empty?
+        STDOUT.puts "ACTION: Updating artists:"
+        new_artists.each { |o, n| puts "ACTION:\t#{o} -> #{a}" }
+      end
+      if album_changes and not album_changes.empty?
+        STDOUT.puts "ACTION: Updating album to: #{album}"
+      end
+
+      # allow bailout
+      STDERR.print "Continue? [Yn] "
+      next if STDIN.gets.strip =~ /^no?$/
+
       # good to go now
+      update(path, artist_changes, album_changes)
+
       STDOUT.puts "ACTION: Moving #{path} to #{dst}"
       FileUtils.mkdir_p(dst)
       FileUtils.mv(path, dst)
     end
   else
     # only import if we get one artist, one album
-    artists = paths.map { |path| TagLib::FileRef.open(path) { |f| [path, f.null? ? nil : f.tag.artist.split(' / ')] } }
+    artists = paths.map { |path| TagLib::FileRef.open(path) { |f| [path, (f.null? || f.tag.artist.nil?) ? [] : f.tag.artist.split(' / ')] } }
     if artists.map { |path, a| a.first }.uniq.size > 1
       STDOUT.puts "ERROR: Multiple primary artists in #{dir}"
       next
-    elsif artists[0][1].nil?
+    elsif artists[0][1].empty?
       STDOUT.puts "ERROR: No artist information for #{dir}"
       next
     end
@@ -219,11 +246,27 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
 
     STDOUT.puts "LOG: Processing #{dir}"
 
-    artist = check_artists(artists)
-    album = check_album(artist, album, paths)
+    # try to fix artist/album
+    artist, new_artists, artist_changes = check_artists(artists)
+    album, album_changes = check_album(artist, album, paths)
     next unless album
 
+    # show new values
+    unless new_artists.empty?
+      STDOUT.puts "ACTION: Updating artists:"
+      new_artists.each { |o, n| puts "ACTION:\t#{o} -> #{n}" }
+    end
+    unless album_changes.empty?
+      STDOUT.puts "ACTION: Updating album to: #{album}"
+    end
+
+    # allow bailout
+    STDERR.print "Continue? [Yn] "
+    next if STDIN.gets.strip =~ /^no?$/
+
     # go, go, go!
+    paths.each { |path| update(path, artist_changes, album_changes) }
+
     dst = dest(artist, album)
     STDOUT.puts "ACTION: Moving #{dir} tracks to #{dst}"
     FileUtils.mkdir_p(dst)
