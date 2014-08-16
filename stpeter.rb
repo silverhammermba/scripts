@@ -142,7 +142,7 @@ def check_album artist, album, paths
   unless $library[artist].include? album
     # look for similar existing album names
     STDERR.puts "New album: #{album}"
-    distances = $library[artist].map { |a| [a, edit_distance(a || '', album)] }
+    distances = $library[artist].map { |a| [a, edit_distance(a || '', album || '')] }
     min = distances.min_by(&:last)
     matches = distances.select { |a, d| d == min[1] }.map(&:first)
 
@@ -242,43 +242,43 @@ sinners.group_by { |path| File.dirname(path) }.each do |dir, paths|
       next
     end
 
-    albums = paths.map { |path| TagLib::FileRef.open(path) { |f| f.null? ? nil : f.tag.album } }.uniq
-    if albums.size > 1
-      STDOUT.puts "ERROR: Multiple albums in #{dir}"
-      next
-    elsif albums.first.nil?
+    albums = paths.group_by { |path| TagLib::FileRef.open(path) { |f| f.null? ? nil : f.tag.album } }
+    if albums.size == 1 and albums[nil]
       STDOUT.puts "ERROR: No album information for #{dir}"
       next
     end
-    album = albums.first
 
     STDOUT.puts "LOG: Processing #{dir}"
 
-    # try to fix artist/album
+    # try to fix artist
     artist, new_artists, artist_changes = check_artists(artists)
-    album, album_changes = check_album(artist, album, paths)
-    next unless album
 
-    # show new values
-    unless new_artists.empty?
-      STDOUT.puts "ACTION: Updating artists:"
-      new_artists.each { |o, n| puts "ACTION:\t#{o} -> #{n}" }
+    albums.each do |album, paths|
+      # try to fix album
+      album, album_changes = check_album(artist, album, paths)
+      next unless album
+
+      # show new values
+      unless new_artists.empty?
+        STDOUT.puts "ACTION: Updating artists:"
+        new_artists.each { |o, n| puts "ACTION:\t#{o} -> #{n}" }
+      end
+      unless album_changes.empty?
+        STDOUT.puts "ACTION: Updating album to: #{album}"
+      end
+
+      # allow bailout
+      STDERR.print "Continue? [Yn] "
+      next if STDIN.gets.strip =~ /^no?$/
+
+      # go, go, go!
+      paths.each { |path| update(path, artist_changes, album_changes) }
+
+      dst = dest(artist, album)
+      STDOUT.puts "ACTION: Moving #{dir} tracks to #{dst}"
+      FileUtils.mkdir_p(dst)
+      paths.each { |path| FileUtils.mv(path, dst) }
     end
-    unless album_changes.empty?
-      STDOUT.puts "ACTION: Updating album to: #{album}"
-    end
-
-    # allow bailout
-    STDERR.print "Continue? [Yn] "
-    next if STDIN.gets.strip =~ /^no?$/
-
-    # go, go, go!
-    paths.each { |path| update(path, artist_changes, album_changes) }
-
-    dst = dest(artist, album)
-    STDOUT.puts "ACTION: Moving #{dir} tracks to #{dst}"
-    FileUtils.mkdir_p(dst)
-    paths.each { |path| FileUtils.mv(path, dst) }
 
     # look for leftover crap
     if Dir.entries(dir).size > 2
