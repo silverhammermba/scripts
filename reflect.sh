@@ -8,12 +8,12 @@ if [ $# -ne 3 ]; then
 	exit 1
 fi
 
-# get US mirrorlist by status
+# get $1 mirrorlist by status
 # strip off header
 # uncomment mirrors
 # remove comments
-# limit to 10 highest scoring mirrors
-# get top 5 by connection speed
+# limit to $2 highest scoring mirrors
+# get top $3 by connection speed
 
 curl -s "https://www.archlinux.org/mirrorlist/?country=$1&use_mirror_status=on" |\
 	tail -n +7 |\
