@@ -2,9 +2,9 @@
 # simpler version of reflector
 
 if [ $# -ne 3 ]; then
-	echo "Usage: $0 COUNTRY SCORE SPEED"
-	echo
-	echo "Rank the top SCORE scoring mirrors for COUNTRY and output the SPEED fastest."
+	echo >&2 "Usage: $0 COUNTRY SCORE SPEED"
+	echo >&2
+	echo >&2 "Rank the top SCORE scoring mirrors for COUNTRY and output the SPEED fastest."
 	exit 1
 fi
 
