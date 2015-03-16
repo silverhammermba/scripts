@@ -5,7 +5,7 @@ require 'fileutils'
 
 srand
 
-theme_dir = File.expand_path('~/.config/awesome/themes/max')
+theme_dir = File.expand_path('~/.config/awesome/theme/')
 background_dir = File.expand_path('~/pictures/backgrounds')
 background = (Dir.entries(background_dir) - ['.', '..']).sample
 
