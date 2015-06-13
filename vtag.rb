@@ -3,6 +3,7 @@
 
 require 'taglib'
 require 'tempfile'
+require 'stringio'
 
 def sec2hms sec
   h = sec / 3600
@@ -17,13 +18,13 @@ def sec2hms sec
   end
 end
 
-write_keys = %w{album artist comment genre title track year}
+def tag_str_from_file name
+  readonly = nil
+  writeable = nil
 
-ARGV.each do |name|
   TagLib::FileRef.open(name) do |f|
     if f.null?
-      warn "Can't load #{f}"
-      next
+      raise Errno::ENOENT, "No such file or directory - #{name}"
     end
 
     props = f.audio_properties
@@ -34,33 +35,70 @@ ARGV.each do |name|
       'sample rate' => "#{props.sample_rate} Hz"
     }
 
+    write_keys = %w{album artist comment genre title track year}
     writeable = write_keys.map { |key| [key, f.tag.send(key)] }.to_h
-
-    data = nil
-
-    Tempfile.open(name) do |t|
-      t.puts "# #{name}"
-      t.puts "#"
-      mk = readonly.keys.map(&:length).max
-      readonly.each do |k, v|
-        t.puts "# %#{mk}s: #{v}" % k
-      end
-      t.puts
-
-      mk = writeable.keys.map(&:length).max
-      writeable.each do |k, v|
-        t.puts "%#{mk}s: #{v}" % k
-      end
-
-      t.puts
-      t.puts "# vi:syntax=yaml"
-      t.flush
-
-      system("vim", t.path)
-
-      t.rewind
-
-      data = t.read
-    end
   end
+
+  str = StringIO.new
+
+  str.puts "# #{name}"
+  str.puts "#"
+  key_length = readonly.keys.map(&:length).max
+  readonly.each do |k, v|
+    str.puts "# %#{key_length}s: #{v}" % k
+  end
+  str.puts
+
+  key_length = writeable.keys.map(&:length).max
+  writeable.each do |k, v|
+    str.puts "%#{key_length}s: #{v}" % k
+  end
+
+  str.puts
+  str.puts "# vi:syntax=yaml"
+
+  str.string
+end
+
+def tag_str_to_file str, name
+  kv = str.lines.select { |line| line =~ /^\s*[^#].*:/ }.map { |line| line.split(?:, 2).map(&:strip) }
+
+  TagLib::FileRef.open(name) do |f|
+    if f.null?
+      raise Errno::ENOENT, "No such file or directory - #{name}"
+    end
+
+    kv.each do |key, value|
+      value = nil if value.empty?
+      begin
+        f.tag.send("#{key}=", value)
+      rescue TypeError
+        if value.is_a?(String) && value =~ /^\d+$/
+          value = value.to_i
+          retry
+        else
+          raise
+        end
+      end
+    end
+
+    f.save
+  end
+end
+
+ARGV.each do |name|
+  str = tag_str_from_file(name)
+
+  Tempfile.open($0) do |t|
+    t.write str
+    t.flush
+
+    system("vim", t.path)
+
+    t.rewind
+
+    str = t.read
+  end
+
+  tag_str_to_file str, name
 end
