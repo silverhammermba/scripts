@@ -5,6 +5,7 @@ require 'taglib'
 require 'tempfile'
 require 'stringio'
 
+# convert seconds to H:M:S
 def sec2hms sec
   h = sec / 3600
   m = (sec - h * 3600) / 60
@@ -18,6 +19,7 @@ def sec2hms sec
   end
 end
 
+# load file with name, return string with tag information
 def tag_str_from_file name
   readonly = nil
   writeable = nil
@@ -60,6 +62,7 @@ def tag_str_from_file name
   str.string
 end
 
+# parse tag information from str, save to tags in file name
 def tag_str_to_file str, name
   kv = str.lines.select { |line| line =~ /^\s*[^#].*:/ }.map { |line| line.split(?:, 2).map(&:strip) }
 
@@ -88,17 +91,22 @@ end
 
 ARGV.each do |name|
   str = tag_str_from_file(name)
+  new_str = nil
 
-  Tempfile.open($0) do |t|
-    t.write str
-    t.flush
+  Tempfile.open($0) do |temp|
+    temp.write str
+    temp.flush
 
-    system("vim", t.path)
+    system(ENV['EDITOR'] || "vim", temp.path)
 
-    t.rewind
-
-    str = t.read
+    temp.rewind
+    new_str = temp.read
   end
 
-  tag_str_to_file str, name
+  # TODO more robust check for changes?
+  if str == new_str
+    next
+  end
+
+  tag_str_to_file new_str, name
 end
