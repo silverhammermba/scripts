@@ -56,9 +56,6 @@ def tag_str_from_file name
     str.puts "%#{key_length}s: #{v}" % k
   end
 
-  str.puts
-  str.puts "# vi:syntax=yaml"
-
   str.string
 end
 
@@ -93,7 +90,7 @@ ARGV.each do |name|
   str = tag_str_from_file(name)
   new_str = nil
 
-  Tempfile.open($0) do |temp|
+  Tempfile.open([$0, '.yaml']) do |temp|
     temp.write str
     temp.flush
 
