@@ -4,6 +4,7 @@
 require 'taglib'
 require 'tempfile'
 require 'stringio'
+require 'yaml'
 
 # convert seconds to H:M:S
 def sec2hms sec
@@ -22,7 +23,7 @@ end
 $write_keys = %w{album artist comment genre title track year}
 
 # load file name and return hash of readonly properties
-def readonly_from_file name
+def readonly_hash_from_file name
   TagLib::FileRef.open(name) do |f|
     if f.null?
       raise Errno::ENOENT, "No such file or directory - #{name}"
@@ -38,8 +39,8 @@ def readonly_from_file name
   end
 end
 
-# load file with name, return hash with tag information
-def kv_from_file name
+# load file name, return hash with tag information
+def tag_hash_from_file name
   TagLib::FileRef.open(name) do |f|
     if f.null?
       raise Errno::ENOENT, "No such file or directory - #{name}"
@@ -50,28 +51,23 @@ def kv_from_file name
 end
 
 # edit tag fields in file name using hash
-def kv_to_file hash, name
+def tag_hash_to_file tags, name
   TagLib::FileRef.open(name) do |f|
     if f.null?
       raise Errno::ENOENT, "No such file or directory - #{name}"
     end
 
-    return if hash.empty?
+    return if tags.empty?
 
-    hash.each do |key, value|
+    tags.each do |key, value|
       # don't write empty strings, just clear the field
       value = nil if value.is_a?(String) && value.empty?
 
       begin
         f.tag.send("#{key}=", value)
       rescue TypeError
-        # try converting numeral strings to integers
-        if value.is_a?(String) && value =~ /^\d+$/
-          value = value.to_i
-          retry
-        end
-
-        raise
+        value = Integer(value, 10)
+        retry
       end
     end
 
@@ -81,48 +77,39 @@ end
 
 # load file with name, return string with tag information
 def tag_str_from_file name
-  readonly = readonly_from_file name
-  writeable = kv_from_file name
+  readonly = readonly_hash_from_file name
+  writeable = tag_hash_from_file name
 
   str = StringIO.new
 
   str.puts "# #{name}"
   str.puts "#"
-  key_length = readonly.keys.map(&:length).max
-  readonly.each do |k, v|
-    str.puts "# %#{key_length}s: #{v}" % k
-  end
-  str.puts
-
-  key_length = writeable.keys.map(&:length).max
-  writeable.each do |k, v|
-    str.puts "%#{key_length}s: #{v}" % k
-  end
+  readonly.each { |k, v| str.puts "# #{k}: #{v}" }
+  str.puts YAML.dump(writeable)
 
   str.string
 end
 
-# convert YAML to a Hash (very naively)
-def kv_from_str str
-  str.lines.select { |line| line =~ /^\s*[^#].*:/ }.map { |line| line.split(?:, 2).map(&:strip) }
+# parse tag hash from string
+def tag_hash_from_str str
+  YAML.load(str)
 end
 
-# parse tag information from str, save to tags in file name
+# parse tag hash from str, save to tags in file name
 def tag_str_to_file str, name
-  kv = kv_from_str str
-
-  kv_to_file kv, name
+  tag_hash_to_file tag_hash_from_str(str), name
 end
 
+# option for editing multiple files
 if ARGV.delete('--common')
-  hashes = ARGV.map { |name| kv_from_file(name).to_h }
+  hashes = ARGV.map { |name| tag_hash_from_file(name).to_h }
 
   # find which tag fields are common among the files
   keys = hashes.flat_map { |hash| hash.keys }.uniq
   common = keys.select { |key| hashes.map { |hash| hash[key] }.uniq.compact.size <= 1 }
   leftover = $write_keys - common
 
-  kv = nil
+  tags = nil
 
   # output common keys for editing
   Tempfile.open([$0, '.yaml']) do |temp|
@@ -146,12 +133,12 @@ if ARGV.delete('--common')
     system(ENV['EDITOR'] || "vim", temp.path)
 
     temp.rewind
-    kv = kv_from_str temp.read
+    tags = tag_hash_from_str temp.read
   end
 
   # save changes
   ARGV.each do |name|
-    kv_to_file kv, name
+    tag_hash_to_file tags, name
   end
 
   exit
