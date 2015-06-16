@@ -64,6 +64,8 @@ class AudioFile
 
         begin
           f.tag.send("#{key}=", value)
+        rescue NoMethodError
+          raise "Invalid tag frame - #{key}"
         rescue TypeError
           # try converting to int if edit failed
           value = Integer(value, 10)
@@ -79,7 +81,7 @@ class AudioFile
 
   def open
     TagLib::FileRef.open(@name) do |f|
-      raise Errno::ENOENT, "No such audio file - #@name" if f.null?
+      raise "Not an audio file - #@name" if f.null?
       return yield(f)
     end
   end
