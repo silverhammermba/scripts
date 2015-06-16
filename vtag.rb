@@ -1,24 +1,35 @@
 #!/usr/bin/env ruby
 # edit audio tags with vim
 
+require 'optparse'
+require 'stringio'
 require 'taglib'
 require 'tempfile'
-require 'stringio'
 require 'yaml'
 
-# open a temp YAML file for editing, return edited contents
-def edit_tmp_yaml
-  Tempfile.open([$0, '.yaml']) do |temp|
-    yield temp
+# open temp YAML file(s) for editing, return edited contents
+def edit_tmp_yaml num = nil
+  temps = Array.new(num || 1) { Tempfile.new([$0, '.yaml']) }
 
-    temp.flush
-
-    system(ENV['EDITOR'] || 'vim', temp.path)
-
-    temp.rewind
-
-    return temp.read
+  if num
+    yield temps
+  else
+    yield temps[0]
   end
+
+  temps.each(&:flush)
+
+  system(ENV['EDITOR'] || 'vim', *temps.map(&:path))
+
+  temps.each(&:rewind)
+
+  if num
+    return temps.map(&:read)
+  else
+    return temps[0].read
+  end
+ensure
+  temps.each(&:close)
 end
 
 # convert seconds to H:M:S
@@ -115,9 +126,9 @@ def tag_str_to_file str, name
   tag_hash_to_file tag_hash_from_str(str), name
 end
 
-# option for editing multiple files
-if ARGV.delete('--common')
-  hashes = ARGV.map { |name| tag_hash_from_file(name).to_h }
+# edit one tag file for all args
+def edit_all names
+  hashes = names.map { |name| tag_hash_from_file(name).to_h }
 
   # find which tag fields are common among the files
   keys = hashes.flat_map { |hash| hash.keys }.uniq
@@ -131,33 +142,46 @@ if ARGV.delete('--common')
     end.to_h
     temp.puts YAML.dump(ck)
 
-    # print other tag in comments
+    # print other tags in comments
     leftover.each do |key|
-      temp.puts "# #{key}:"
+      temp.puts "##{key}:"
     end
     temp.puts
 
-    ARGV.each do |name|
+    names.each do |name|
       temp.puts "# #{name}"
     end
   end
 
   # save changes
-  ARGV.each do |name|
+  names.each do |name|
     tag_hash_to_file tag_hash_from_str(str), name
   end
-
-  exit
 end
 
-ARGV.each do |name|
-  str = tag_str_from_file(name)
-  new_str = edit_tmp_yaml { |temp| temp.write str }
-
-  # TODO more robust check for changes?
-  if str == new_str
-    next
+# edit tag file for each arg
+def edit_multiple names
+  strs = names.map { |name| tag_str_from_file name }
+  new_strs = edit_tmp_yaml(names.size) do |tmps|
+    strs.zip(tmps).each { |str, tmp| tmp.write str }
   end
 
-  tag_str_to_file new_str, name
+  names.zip(strs, new_strs).each do |name, str, new_str|
+    # TODO more robust check for changes?
+    if str == new_str
+      next
+    end
+    tag_str_to_file new_str, name
+  end
 end
+
+op = :edit_multiple
+OptionParser.new do |opts|
+  opts.banner = "Usage: #$0 [--all] [FILES]"
+
+  opts.on('-a', '--all', 'Edit all file tags at once') do
+    op = :edit_all
+  end
+end.parse!
+
+send op, ARGV
