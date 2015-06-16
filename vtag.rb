@@ -112,9 +112,8 @@ end
 
 ### MAIN PROCEDURES ###
 
-# edit one tag file for all args
-def edit_all names
-  files = names.map { |name| AudioFile.new(name) }
+# edit one tag for all files
+def edit_all files
   hashes = files.map(&:props)
 
   # find which tag fields are common among the files
@@ -135,8 +134,8 @@ def edit_all names
     end
     temp.puts
 
-    names.each do |name|
-      temp.puts "# #{name}"
+    files.each do |file|
+      temp.puts "# #{file.name}"
     end
   end
 
@@ -147,10 +146,8 @@ def edit_all names
   end
 end
 
-# edit tag file for each arg
-def edit_multiple names
-  files = names.map { |name| AudioFile.new(name) }
-
+# edit each file's tag
+def edit_multiple files
   strs = files.map do |file|
     str = StringIO.new
 
@@ -162,7 +159,7 @@ def edit_multiple names
     str.string
   end
 
-  new_strs = edit_tmp_yaml(names.size) do |tmps|
+  new_strs = edit_tmp_yaml(files.size) do |tmps|
     strs.zip(tmps).each { |str, tmp| tmp.write str }
   end
 
@@ -186,4 +183,4 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-send op, ARGV
+send(op, ARGV.map { |name| AudioFile.new(name) })
