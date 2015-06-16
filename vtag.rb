@@ -6,6 +6,21 @@ require 'tempfile'
 require 'stringio'
 require 'yaml'
 
+# open a temp YAML file for editing, return edited contents
+def edit_tmp_yaml
+  Tempfile.open([$0, '.yaml']) do |temp|
+    yield temp
+
+    temp.flush
+
+    system(ENV['EDITOR'] || 'vim', temp.path)
+
+    temp.rewind
+
+    return temp.read
+  end
+end
+
 # convert seconds to H:M:S
 def sec2hms sec
   h = sec / 3600
@@ -109,36 +124,27 @@ if ARGV.delete('--common')
   common = keys.select { |key| hashes.map { |hash| hash[key] }.uniq.compact.size <= 1 }
   leftover = $write_keys - common
 
-  tags = nil
+  str = edit_tmp_yaml do |temp|
+    # print common tags
+    ck = common.map do |key|
+      [key, hashes.map { |hash| hash[key] }.uniq.compact[0]]
+    end.to_h
+    temp.puts YAML.dump(ck)
 
-  # output common keys for editing
-  Tempfile.open([$0, '.yaml']) do |temp|
-    key_length = $write_keys.map(&:length).max
-
-    common.each do |key|
-      value = hashes.map { |hash| hash[key] }.uniq.compact[0]
-      temp.puts "  %#{key_length}s: #{value}" % key
-    end
+    # print other tag in comments
     leftover.each do |key|
-      temp.puts "# %#{key_length}s:" % key
+      temp.puts "# #{key}:"
     end
     temp.puts
 
     ARGV.each do |name|
       temp.puts "# #{name}"
     end
-
-    temp.flush
-
-    system(ENV['EDITOR'] || "vim", temp.path)
-
-    temp.rewind
-    tags = tag_hash_from_str temp.read
   end
 
   # save changes
   ARGV.each do |name|
-    tag_hash_to_file tags, name
+    tag_hash_to_file tag_hash_from_str(str), name
   end
 
   exit
@@ -146,17 +152,7 @@ end
 
 ARGV.each do |name|
   str = tag_str_from_file(name)
-  new_str = nil
-
-  Tempfile.open([$0, '.yaml']) do |temp|
-    temp.write str
-    temp.flush
-
-    system(ENV['EDITOR'] || "vim", temp.path)
-
-    temp.rewind
-    new_str = temp.read
-  end
+  new_str = edit_tmp_yaml { |temp| temp.write str }
 
   # TODO more robust check for changes?
   if str == new_str
