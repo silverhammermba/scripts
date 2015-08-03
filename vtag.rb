@@ -176,12 +176,19 @@ end
 # default behavior
 op = :edit_multiple
 
-OptionParser.new do |opts|
+options = OptionParser.new do |opts|
   opts.banner = "Usage: #$0 [--all] [FILES]"
 
   opts.on('-a', '--all', 'Edit all file tags at once') do
     op = :edit_all
   end
-end.parse!
+end
+
+options.parse!
+
+if ARGV.empty?
+  warn options
+  exit 1
+end
 
 send(op, ARGV.map { |name| AudioFile.new(name) })
