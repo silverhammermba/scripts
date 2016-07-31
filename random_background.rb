@@ -6,7 +6,7 @@ require 'fileutils'
 srand
 
 theme_dir = File.expand_path('~/.config/awesome/theme/')
-background_dir = File.expand_path('~/pictures/backgrounds')
+background_dir = File.expand_path('~/Pictures/backgrounds')
 background = (Dir.entries(background_dir) - ['.', '..']).sample
 
 FileUtils.rm_f File.join(theme_dir, 'background.png')

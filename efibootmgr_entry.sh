@@ -1,5 +1,7 @@
 #!/bin/bash
 # create new Arch Linux UEFI boot entry
+set -euo pipefail
+IFS=$'\n\t'
 
 LABEL="Arch Linux"
 ENTRY="$(efibootmgr | grep "$LABEL" | cut --characters=5-8)"
