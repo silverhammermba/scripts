@@ -89,7 +89,8 @@ end
 
 # open temp YAML file(s) for editing, return edited contents
 def edit_tmp_yaml num = nil
-  temps = Array.new(num || 1) { Tempfile.new([$0, '.yaml']) }
+  name = File.basename($0, File.extname($0))
+  temps = Array.new(num || 1) { Tempfile.new([name, '.yaml']) }
 
   if num
     yield temps
@@ -175,12 +176,19 @@ end
 # default behavior
 op = :edit_multiple
 
-OptionParser.new do |opts|
+options = OptionParser.new do |opts|
   opts.banner = "Usage: #$0 [--all] [FILES]"
 
   opts.on('-a', '--all', 'Edit all file tags at once') do
     op = :edit_all
   end
-end.parse!
+end
+
+options.parse!
+
+if ARGV.empty?
+  warn options
+  exit 1
+end
 
 send(op, ARGV.map { |name| AudioFile.new(name) })
